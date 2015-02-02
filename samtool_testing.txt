@@ -1,0 +1,303 @@
+								SAMTOOL VALIDATION/TESTING
+								==========================
+
+INTRODUCTION and TESTING METHODOLOGY
+=====================================
+	This is the validation and testing plan for the SAMTOOL program.  It's not meant to be a 100% exhaustive test of the program, but it will test every possible combination for each type of command (mem/io/msr/pci). 
+	
+	Since it's expected that different systems will be used for testing, most of the actual test cases will involve hardware targets that should be present on ANY IA based system (IO Port 0x80, BIOS, HPET timers, etc).  Note that there might be a few deviations on systems I'm not super-familiar with, like Atom and/or Quark based systems.  Call me and we'll figure out an alternative H/W target that will work on your system.  One important exception is that parts of the memory testing will require an "MMIO" memory target.  This will be different on each and every platform!  Using a memory range of your graphics chip usually works fine (BAR register 0x10 of your GFX device).  Give me a buzz if you need help figuring out this memory address.
+
+	IDEALLY I would like to these tests on a Linux distro from each of the families of Linux; Ubuntu, Redhat, and Fedora.  Most of what I work with is Ubuntu and Mint (both Ubuntu based), so these have been heavily tested.
+
+	You'll will note that the majority of the tests below are nothing more than ensuring that EXAMPLES given in each HELP menu work successfully.  This is by design.  I suspect that majority of users will use the HELP MENU examples as templates for their own commands.  THus, it's critical that the examples given work flawlessly.  The examples given in the HELP menus also provide a pretty comprehensive list of every option for each command - it makes for a good testplan!
+
+
+INSTALLATION
+============
+	This program does NOT require a driver.  Simply move all of the files to as given directory on the target system and run the following commands to ensure the proper libraries are present/installed, and finally, to compile the program:
+	- Copy the following files to a given directory:
+			samtool.c
+			samkit.h
+			samkit.c
+	- install the linux pci libraries:
+			sudo apt-get install libpci-dev
+	- install the linux msr libraries:
+			sudo apt-get install msr-tools
+	- Problems getting past the Intel firewall?
+			From Terminal, type:  sudo pico /etc/apt/apt.conf and add these lines:
+					Acquire::http::proxy "http://proxy-us.intel.com:911/";
+					Acquire::ftp::proxy "ftp://proxy-us.intel.com:911/";
+					Acquire::https::proxy "https://proxy-us.intel.com:911/";
+	- Compile the beast:
+			gcc -Wall -W -Werror -g samtool.c samkit.c -lpci -lm -o samtool
+
+==============================================================================
+==============================================================================
+Your Name: _________________						SAMTOOL Version #:_______________
+Date:	     __________________			Linux Type and Version #: ________________
+
+
+TESTING - HELP MENUS
+====================
+------------------------------------------------------------------------------
+*  sudo ./samtool
+	sudo ./samtool ?
+	- Ensure it brings up the standard help menu.  Check for typos, formatting, version number, date, Copyright info, contact info.
+
+------------------------------------------------------------------------------
+*	sudo ./samtool mem
+	sudo ./samtool mem ?
+	- Ensure it brings up the MEMORY help menu.  Check for typos, formatting, etc.
+
+------------------------------------------------------------------------------
+*  sudo ./samtool io
+	sudo ./samtool io ?
+	- Ensure it brings up the IO help menu.  Check for typos, formatting, etc.
+
+------------------------------------------------------------------------------
+*  sudo ./samtool msr
+	sudo ./samtool msr ?
+	- Ensure it brings up the MSR help menu.  Check for typos, formatting, etc.  
+
+------------------------------------------------------------------------------
+*  sudo ./samtool pci 
+	sudo ./samtool pci ?
+	- Ensure it brings up the PCI help menu.  Check for typos, formatting, etc.  
+
+
+TESTING - STANDARD MEM COMMANDS
+===============================
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xFFFFFFF0 d 0x10 f
+	- Ensure frequency is CALCULATED (takes 5 seconds.
+	- Ensure frequency calculation accurate (if known)
+	- Four bytes should be returned.  One of the first four bytes should be 0xE# (JMP instruction for BIOS)
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xFFFFFFF0 d 0x10 f=x.x (use frequency calculated before)
+	- Ensure that the Bandwidth number and Time are roughly the same as the value before (~10%)
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xFED000F0 d 8 f
+   sudo ./samtool mem 0xFED000F0 d 8 f=x.x (where x.x is actual frequency)
+   sudo ./samtool mem 0xFED000F0 d 8 f=x.x
+	- Since this is a read from HPET timer, these three reads should return increasing values.  For example:
+					0  1  2  3  4  5  6  7
+					----------------------
+0xFED000F0:    33 EF 68 E3 00 00 00 00			= 0xE368EF33
+               58 CD DC E3 00 00 00 00			= 0xE3DCCD58
+					FB 68 4A E4 00 00 00 00			= 0xE44A68FB
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xC0000 w 0x20 
+	- Read from VGA BIOS.  Ensure first two bytes are 0xAA55.  For example:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					------------------------------------------------
+0x000C0000:    55 AA 79 E9 01 02 02 00	00 00 00 00 00 00 00 00 	= 0xAA55
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xA0000=0x1122 0x40
+	- Ensure the screen looks like this:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0x000A0000:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+0x000A0010:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+0x000A0020:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+0x000A0030:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xA0000 0x40
+	- Ensure the write data "stuck".  Ensure screen looks like this:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0x000A0000:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+0x000A0010:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+0x000A0020:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+0x000A0030:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+
+------------------------------------------------------------------------------
+NOTE:  The following commands require that you identify a Memory Mapped IO Range on your system.   MMIO space is memory addresses assigned to an "external" device such as a video card or GFX chip.  To find an MMIO range we can use for the tests below, run the following command:
+*  sudo lspci -x
+And then look for a device that contains the word "VGA".  The address located at PCI registers 0x10-0x13 identifies an MMIO range that we can use.  As an example:
+
+01:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Cedar [Radeon HD 5000/6000/7350/8350 Series]
+00: 02 10 f9 68 07 04 10 00 00 00 00 03 00 00 80 00
+10: 0c 00 00 c0 00 00 00 00 04 00 30 d2 00 00 00 00
+20: 01 80 00 00 00 00 00 00 00 00 00 00 82 16 33 30
+30: 00 00 fe ff 50 00 00 00 00 00 00 00 0b 01 00 00
+
+The MMIO Range identified at registers 0x10-0x13 is 0xC000000C.  Always turn the last hex digit into a 0.  So, the MMIO range to use in this example is 0xC0000000.  It will probably be different in your system, but I'll use 0xC0000000 in the examples below.
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xC0000000=0x11 xmm 0x10 f  
+	- Ensure screen looks like this:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0xC0000000:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000010:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000020:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000030:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+...
+0xC000FFC0:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC000FFD0:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC000FFE0:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC000FFF0:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+NOTE:  VERY RARELY I've had this command lock-up the system (you are, after all, writing to the video card!).  It's only happened maybe 1% of the time, but save your work before executing this command.
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xC0000000 x 0x40 f=x.x (use frequency calculated before)
+	- Ensure the first "block" looks the same as above.  The 2nd block (the lower 64 bytes of the 256KB read) might have different data than shown below since we haven't written too it.  Each GFX card can be different, however:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0xC0000000:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000010:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000020:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000030:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+...
+0xC003FFC0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC003FFD0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC003FFE0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC003FFF0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+
+TESTING - MEM COMMANDS: BYTE/WORD/DWORD/XMM TESTING
+===================================================
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xC0000000=0x00 d 0x40
+	- Ensure it looks like this:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0xC0000000:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000010:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000020:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000030:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+------------------------------------------------------------------------------
+*  sudo ./samtool mem 0xC0000000=0x11 b
+*  sudo ./samtool mem 0xC0000010=0x2233 w
+*  sudo ./samtool mem 0xC0000020=0x44556677 d
+*  sudo ./samtool mem 0xC0000000 0x40
+	- Ensure last command output looks like this:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0xC0000000:    11 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000010:    33 22 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000020:    77 66 55 44 00 00 00 00 00 00 00 00 00 00 00 00
+0xC0000030:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+
+TESTING - MEM COMMANDS: PERFORMANCE TESTING
+===========================================
+------------------------------------------------------------------------------
+The following tests verify that moving data via Bytes, Words, DWords, and using XMM instructions (16 byte moves) generates increasingly faster bandwidth values.  Different systems will give different times/bandwidth values, so just ensure that the times get faster and that the bandwidth numbers are correspondingly faster since each command reads the same number of bytes.  The Bandwidth values SHOULD roughly be in multiples of x1, x2, x4, and x16.  The examples below show values for my system:
+*  sudo ./samtool mem 0xC0000000 b 0x1000 f
+		Time:  		2923.0195 us
+		Bandwidth:  1.40129 MB/sec
+*  sudo ./samtool mem 0xC0000000 w 0x1000 f
+		Time:  		1481.9325 us
+		Bandwidth:  2.763958 MB/sec
+*  sudo ./samtool mem 0xC0000000 d 0x1000 f
+		Time:  		745.5031 us
+		Bandwidth:  5.494276 MB/sec
+*  sudo ./samtool mem 0xC0000000 x 0x1 f
+		Time:  		209.4442 us
+		Bandwidth:  19.556522 MB/sec
+
+
+TESTING - IO COMMANDS
+=====================
+------------------------------------------------------------------------------
+*  sudo ./samtool io 0x80
+	- The returned value MIGHT be non-zero.  Ensure screen looks like this.  Also, note that if you have a visible Port 0x80 display on your board, the returned value you should match the LED:
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0x00000080:    00 xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx
+
+------------------------------------------------------------------------------
+*  sudo ./samtool io 0x80=0xBA
+*  sudo ./samtool io 0x80
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0x00000080:    BA xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx
+	- A port 0x80 LED on the board should now also be displaying 0xBA.
+
+------------------------------------------------------------------------------
+*  sudo ./samtool io 0xCF8 d     
+	- Although the returned data will be different, the screen should look something like what is shown below.  The byte at address 0xCFB will most likely be 0x80, however.
+					0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+					-----------------------------------------------
+0x00000CF0:    xx xx xx xx xx xx xx xx F0 F8 00 80 xx xx xx xx
+
+
+TESTING - MSR COMMANDS
+======================
+------------------------------------------------------------------------------
+*  sudo ./samtool msr 0x10
+*  sudo ./samtool msr 0x10
+*  sudo ./samtool msr 0x10
+	- Since this is the processor's time stamp counter, ensure these three commands return increasing values of the counter.  It should look something like that shown below:
+Return Data:  MSR(0x10) = 0x00001A1BDC9FA8DD
+Return Data:  MSR(0x10) = 0x00001A1C38D7DE19
+Return Data:  MSR(0x10) = 0x00001A1C8A7E1457
+
+------------------------------------------------------------------------------
+*  sudo ./samtool msr 0xC3
+*  sudo ./samtool msr 0xC3=0x10
+*  sudo ./samtool msr 0xC3
+	- Ensure that the final read shows that the value of 0x10 written to MSR 0xC3 (General Performance Counter) was written successfully.  It should look like:
+Return Data:  MSR(0xC3) = 0x0000000000000010
+
+
+TESTING - PCI COMMANDS
+======================
+------------------------------------------------------------------------------
+*  sudo ./samtool pci 00:0x00.0x00-0x00 d
+	- Ensure that four bytes are returned.  The first two bytes will be 0x8086.  The last two bytes are variable depending on your specific system.
+PCI Address(Read) : 00:00.0-000h    Size:  DWORD
+		   0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+			-----------------------------------------------
+0x000:   86 80 00 0C xx xx xx xx xx xx xx xx xx xx xx xx
+
+------------------------------------------------------------------------------
+*  sudo ./samtool pci 00:0x1F.00-04=0x0FFF
+   sudo ./samtool pci 00:0x1F.00-04 w
+PCI Address(Read) : 00:1F.0-004h    Size:  WORD
+		   0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+			-----------------------------------------------
+0x000:   xx xx xx xx 47 01 xx xx xx xx xx xx xx xx xx xx
+	- Ensure that bits [2:0] in byte 4 are set to 111b.  Many of the other bits in this word are read-only, which is why it doesn't return all 0xFFF.  This is normal.
+
+------------------------------------------------------------------------------
+*  sudo ./samtool pci 00:0x1D.00
+	- Ensure all bytes from 0x00-0xFF are read from device.  The actual data will vary depending on your system:
+PCI Address(Read) : 00:1D.0-000h    (Device)
+		   0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+			-----------------------------------------------
+0x000:   86 80 4b 8c 07 00 10 02 02 00 01 06 00 00 80 00
+0x010:   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0x020:   00 00 00 00 00 00 00 00 00 00 00 00 86 80 70 72
+0x030:   00 00 00 00 e0 00 00 00 00 00 00 00 00 00 00 00
+0x040:   01 18 00 00 80 00 00 00 01 08 00 00 10 00 00 00
+0x050:   f8 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0x060:   8b 8a 8b 8b 90 00 00 00 8b 80 8b 8b f8 f0 00 00
+0x070:   78 f0 78 f0 78 f0 78 f0 78 f0 78 f0 78 f0 78 f0
+0x080:   10 00 03 3c 81 06 0c 00 41 16 0c 00 00 00 00 00
+0x090:   a1 06 0c 00 00 0f 00 00 00 00 00 00 00 00 00 00
+0x0a0:   14 5e 80 18 48 38 06 00 00 46 00 00 00 00 01 00
+0x0b0:   00 00 00 00 00 00 00 00 00 80 02 00 00 00 00 00
+0x0c0:   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0x0d0:   33 22 11 00 67 45 00 00 c0 ff 00 00 08 00 00 00
+0x0e0:   09 00 0c 10 00 00 00 00 01 e8 30 95 00 00 00 00
+0x0f0:   01 c0 d1 fe e5 59 23 00 b1 0f 02 08 00 00 00 00
+
+------------------------------------------------------------------------------
+*  sudo ./samtool pci nosudo Registers.txt
+	- Ensure that a file called "Registers.txt" was created in the directory, and that the file contains all of the PCI registers for each device in the system.
+
+------------------------------------------------------------------------------
+*  ./samtool pci nosudo Registers_nosudo.txt
+NOTE:  Do NOT put "sudo" in front of the command!
+	- Ensure that the file called "Registers_nosudo.txt" was created in the directory, and that the file contains registers 0x00-0x3F for each PCI device.  
+
+NOTE:  The "nosudo" option was created because certain Linux builds do not PERMIT adding "sudo" before the command!
