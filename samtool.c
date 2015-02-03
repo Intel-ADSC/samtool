@@ -51,7 +51,7 @@
 // Version Info
 #define COPYRIGHT_STRING "Copyright 2015, Intel Corporation"
 #define AUTHOR_STRING "Sam Fleming"
-#define VERSION_STRING "Version 1.2  (xx-xx-2015)"
+#define VERSION_STRING "Version 1.3  (02-03-2015)"
 // ==========================================================
 // Defines Being Used
 #include <stdbool.h>		// For bool
@@ -1689,15 +1689,18 @@ Version 1.x  (xx-xx-2015):
 	- The embedded assembly TSC routines were only returning 4 bytes.  2GB transfer times were reported incorrectly!  Fixed.
 	- Long memory dumps (b, d, w) were taking too long.  Now only displaying first 0x100 and last 0x100 bytes.
 	- Transfer size bumped up to 512MB (biggest MMIO card I have available for testing).
-	- 
+Version 1.2  (01-30-2015):  Release to Bluecoat.
+Version 1.3  (02-03-2015):
+	- First official release on GitHub.
+	- Added a very short readme
 	
 
 TO DO:
 =====
 *)  Need to add ability to pass THIRTY-TWO BYTES 0x112233445566778899AABBCCDDEEFF00 (and this is only 16!) for xmm instruction
+*)  It would be VERY NICE to "assembl-ize" the RDMSR and PCI routines (requiring access to PCIEXBAR).  Would remove library dependancies
 *)  I would make ALL the integers uul (length, address).
 *)  Making 64 bit addresses will be important, but hard!
-*)  Test the accesses to MMIO lab.  Verify B/W/D/X.  Verify times are "sane" and rational.
 *)  PCIe 2.0 and 3.0 testing  (MB/Sec)
 *)  CPUID (I would just try to dump the whole kit-n-kaboodle (to file).  For the love of all that is righteous - DECODE THE ASCII STRINGS!
 *)  Read-Modify-Write ability?  Really handy for PCI registers.  Will necessitate adding "x" for bits to be read but not modified.
