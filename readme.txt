@@ -18,3 +18,5 @@ Libaries:
 Compile:
 	gcc -Wall -W -Werror -g samtool.c samkit.c -lpci -lm -o samtool
 
+To Run:
+	sudo ./samtool	?
