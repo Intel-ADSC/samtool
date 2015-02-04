@@ -10,6 +10,8 @@ Required Files:
 	samkit.c
 	samkit.h
 	samtool.c
+	code_block_read.h
+	code_block_write.h
 
 Libaries:
 	sudo apt-get install libpci-dev
