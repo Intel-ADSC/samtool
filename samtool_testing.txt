@@ -68,14 +68,29 @@ TESTING - HELP MENUS
 TESTING - STANDARD MEM COMMANDS
 ===============================
 ------------------------------------------------------------------------------
-*  sudo ./samtool mem 0xFFFFFFF0 d 0x10 f
+*  sudo ./samtool mem 0xFFFFFFF0 0x10 f
 	- Ensure frequency is CALCULATED (takes 5 seconds.
 	- Ensure frequency calculation accurate (if known)
-	- Four bytes should be returned.  One of the first four bytes should be 0xE# (JMP instruction for BIOS)
+	- 16 bytes returned.  One of the first four bytes should be 0xE# (JMP instruction for BIOS)
+Example:
+Mem Address(Read) : 0xFFFFFFF0   Size: DWORD   Length: 0x0010
+             0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+             -----------------------------------------------
+0xFFFFFFF0:  0F 09 E9 3B FF FF FF 00 00 00 01 00 00 00 FA FF 
 
+Frequency:          2.00001GHz       Time: 17.7879 us
+Bytes Transferred:  0x000010         Bandwidth: 0.899489 MB/sec
+	
 ------------------------------------------------------------------------------
 *  sudo ./samtool mem 0xFFFFFFF0 d 0x10 f=x.x (use frequency calculated before)
-	- Ensure that the Bandwidth number and Time are roughly the same as the value before (~10%)
+	- Ensure that the Bandwidth number is roughly the same (+-10%) as the value before.
+Mem Address(Read) : 0xFFFFFFF0   Size: DWORD   Length: 0x0010
+             0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+             -----------------------------------------------
+0xFFFFFFF0:  0F 09 E9 3B FF FF FF 00 00 00 01 00 00 00 FA FF 
+
+Frequency:          2.00000GHz       Time: 18.0480 us
+Bytes Transferred:  0x000010         Bandwidth: 0.886525 MB/sec
 
 ------------------------------------------------------------------------------
 *  sudo ./samtool mem 0xFED000F0 d 8 f
@@ -104,6 +119,7 @@ TESTING - STANDARD MEM COMMANDS
 0x000A0010:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
 0x000A0020:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
 0x000A0030:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
+(Fedora BLOCKED writes to VGA Mem Region!)
 
 ------------------------------------------------------------------------------
 *  sudo ./samtool mem 0xA0000 0x50
@@ -115,6 +131,8 @@ TESTING - STANDARD MEM COMMANDS
 0x000A0020:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
 0x000A0030:    22 11 22 11 22 11 22 11 22 11 22 11 22 11 22 11
 0x000A0040:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+(Last line can contain any data)
+(Fedora BLOCKED writes to VGA Mem Region!)
 
 ------------------------------------------------------------------------------
 NOTE:  The following commands require that you identify a Memory Mapped IO Range on your system.   MMIO space is memory addresses assigned to an "external" device such as a video card or GFX chip.  To find an MMIO range we can use for the tests below, run the following command:
@@ -162,6 +180,7 @@ NOTE:  VERY RARELY I've had this command lock-up the system (you are, after all,
 0xC003FFD0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 0xC003FFE0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 0xC003FFF0:    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+(last four lines can contain ANY data, other than the 0x11 00 ....)
 
 
 TESTING - MEM COMMANDS: BYTE/WORD/DWORD/XMM TESTING
@@ -304,3 +323,4 @@ NOTE:  Do NOT put "sudo" in front of the command!
 	- Ensure that the file called "Registers_nosudo.txt" was created in the directory, and that the file contains registers 0x00-0x3F for each PCI device.  
 
 NOTE:  The "nosudo" option was created because certain Linux builds do not PERMIT adding "sudo" before the command!
+       This did not work properly with SUSE or Fedora Linux Builds.

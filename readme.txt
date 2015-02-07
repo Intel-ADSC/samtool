@@ -1,4 +1,4 @@
-SAMTOOL is a simple command-line program used to read/write to these 
+SAMTOOL is a simple command-line program used to read/write to hardware 
 locations in an IA based system:
 	- MMIO (memory-mapped IO)			- PCI
 	- IO										- MSR
@@ -10,15 +10,13 @@ Required Files:
 	samkit.c
 	samkit.h
 	samtool.c
-	code_block_read.h
-	code_block_write.h
 
-Libaries:
+Libraries:
 	sudo apt-get install libpci-dev
 	sudo apt-get install msr-tools
 
 Compile:
 	gcc -Wall -W -Werror -g samtool.c samkit.c -lpci -lm -o samtool
 
-To Run:
-	sudo ./samtool	?
+Run (help Example):
+	sudo ./samtool ?

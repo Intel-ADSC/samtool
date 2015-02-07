@@ -51,7 +51,7 @@
 // Version Info
 #define COPYRIGHT_STRING "Copyright 2015, Intel Corporation"
 #define AUTHOR_STRING "Sam Fleming"
-#define VERSION_STRING "Version 1.3  (02-03-2015)"
+#define VERSION_STRING "Version 1.4  (02-06-2015)"
 // ==========================================================
 // Defines Being Used
 #include <stdbool.h>		// For bool
@@ -681,22 +681,23 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
         (THE_Command->Command_Final == ll_command_none)  )
 		{
       printf("\n===================================================================================================\n"); 
-		fprintf(stderr, "USAGE:\tsudo %s {mem/io/msr/pci} {address} {=data (for write)} {b/w/d/x} {length} {?} {f{=#.#}}\n"
-			"   {mem/io/msr/pci}      - Register Type:   Memory, I/O, MSR, PCI\n"
-			"   {address}             - Address:         0x######### for (mem, IO, MSR) - In Hexadecimal\n"
-			"                                            BB:D.F-0x## for (PCI)\n"
-			"                                            BB:D.F          (PCI Device Dump)\n"
-			"   {=data (for writes)}  - Data to Write:   =0x####         (In Hexadecimal)\n"
-			"   {b/w/d/x}             - Access Size:     Byte, Word, Dword, XMM\n"
-			"   {length (total size)} - # of Bytes TOTAL                 (mem only)\n"
-			"                                                            (# of 4K blocks for xmm)\n"
-			"                                                            (max of 512MB = 0x20000000/0x20000 for xmm))\n"
-			"   {?}                   - Extended Help                    (with {mem/io/msr/pci} )\n"
-			"   {f{=#.#}}             - Measure Time.    Freq in GHz     (#.# Optional.  Otherwise tool calculates using HPET/TSC)\n\n"
+		fprintf(stderr, "USAGE: sudo %s {mem/io/msr/pci} {address} {=data (for write)} {b/w/d/x} {length} {?} {f{=#.#}}\n"
+			"  {mem/io/msr/pci}      - Register Type:   Memory, I/O, MSR, PCI\n"
+			"  {address}             - Address:         0x######### for (mem, IO, MSR) - In Hexadecimal\n"
+			"                                           BB:D.F-0x## for (PCI)\n"
+			"                                           BB:D.F          (PCI Device Dump)\n"
+			"  {=data (for writes)}  - Data to Write:   =0x####         (In Hexadecimal)\n"
+			"  {b/w/d/x}             - Access Size:     Byte, Word, Dword, XMM\n"
+			"  {length (total size)} - # of Bytes TOTAL                 (mem only)\n"
+			"                                                           (# of 4K blocks for xmm)\n"
+			"                                                           (max of 512MB = 0x20000000/0x20000 for xmm))\n"
+			"  {?}                   - Extended Help                    (with {mem/io/msr/pci} )\n"
+			"  {f{=#.#}}             - Measure Time.    Freq in GHz     (#.# Opt - Else tool calculates using HPET/TSC)\n\n"
 
 			"EXAMPLE:  sudo %s mem 0xFFFFFFF0 d 0x10 f\n"
-			"   Memory Read from 0xFFFFFFF0 (dword access).  Total of 0x10 bytes read.  Measure latency/performance.	 [BIOS Boot Vector]\n\n"
-			"EXAMPLE:  sudo %s {mem/io/msr/pci} ?   Extended Help & Examples  \n\n",
+			"  Memory Read from 0xFFFFFFF0 (dword access).  Total of 0x10 bytes read.  Measure latency/performance\n"
+			"                                                                          [BIOS Boot Vector]\n\n"
+			"EXAMPLE:  sudo %s {mem/io/msr/pci} ?    Extended Help & Examples  \n\n",
 			copyargv[0], copyargv[0], copyargv[0]);
       printf("---------------------------------------------------------------------------------------------------\n"); 
 	
@@ -722,21 +723,32 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		{
       printf("\n===================================================================================================\n"); 
 		fprintf(stderr, "USAGE:\tsudo %s mem address {=data (for write)} {b/w/d/x} {length} {f{=#.#}}\n"
-			"   {address}             - Address:         0x#########\n"
-			"   {=data (for writes)}  - Data to Write:   =0x####             (Optional.  Only for Writes.  In Hexadecimal)\n"
-			"   {b/w/d/x}             - Access Size:     Byte/Word/DWord/XMM (Optional.  Defaults to Byte)\n"
-			"   {length (total size)} - # of Bytes TOTAL                     (Optional.  Defaults to Access Size)\n"
-  			"                                                                (# of 4K blocks for xmm)\n"
-			"                                                                (max of 512MB = 0x20000000/0x20000 for xmm))\n"
-			"   {f{=#.#}}             - Measure Time.    Freq in GHz         (#.# Optional.  Otherwise tool calculates)\n\n"
+			"  {address}             - Address:         0x#########\n"
+			"  {=data (for writes)}  - Data to Write:   =0x####             (Opt.  Only for Writes.  In Hexadecimal)\n"
+			"  {b/w/d/x}             - Access Size:     Byte/Word/DWord/XMM (Opt.  Defaults to Byte)\n"
+			"  {length (total size)} - # of Bytes TOTAL                     (Opt.  Defaults to Access Size)\n"
+  			"                                                               (# of 4K blocks for xmm)\n"
+			"                                                               (max of 512MB = 0x20000000 {0x20000 for xmm})\n"
+			"  {f{=#.#}}             - Measure Time.    Freq in GHz         (#.# Optional.  Otherwise tool calculates)\n\n"
 
 
 			"EXAMPLES:\n"
-		   "   sudo %s mem 0xFED000F0 d 8 f            Mem. Rd. from          0xFED000F0  Dword Access  Dword Reads of 8 bytes.  Measure Time (Will calc freq). [HPET Timer]\n"
-		   "   sudo %s mem 0xC0000 w 0x20              Mem. Rd. from          0xC0000     Word Access   Word reads of 0x20 bytes.  [VGA BIOS]\n"
-		   "   sudo %s mem 0xA0000=0x1122 0x40         Mem. Wr. of 0x1122 to  0xA0000     Word Access   Word data of 0x1122 written to 0x40 consecutive bytes.  [VGA Mem]\n"
-		   "   sudo %s mem 0x90000000=0x11 xmm 0x10 f  Mem. Wr. of 0x11 to    0x90000000  Block Write   (0x10*4k)=64KB consecutive bytes written of 0x11 using XMM instructions.  (Calc Freq) [MMIO]\n"
-  			"   sudo %s mem 0x90000000 x 0x40 f=2.0     Mem. Rd. from          0x90000000  Block Read    (0x40*4k)=256KB consecutive bytes read using XMM instructions. Use 2.0Ghz for frequency) [MMIO]\n",
+		   "  sudo %s mem 0xFED000F0 d 8 f            Mem. Rd.from 0xFED000F0.       Dword Reads of 8 bytes.  Time measured.\n"
+		   "                                                                                Will calculate frequency.\n"
+		   "                                                                                                            [HPET Timer]\n"
+		   "  sudo %s mem 0xC0000 w 0x20              Mem. Rd.from 0xC0000           Word Reads of 0x20 bytes.\n"
+         "                                                                                                              [VGA BIOS]\n"
+		   "  sudo %s mem 0xA0000=0x1122 0x40         Mem. Wr.of 0x1122 to 0xA0000   Word Writes of 0x1122.  0x40 \n"
+		   "                                                                                consecutive bytes\n"
+         "                                                                                                               [VGA Mem]\n"
+		   "  sudo %s mem 0x90000000=0x11 xmm 0x10 f  Mem. Wr.of 0x11 to 0x90000000  Block Write of 0x11.  (0x10*4k)=64KB \n"
+		   "                                                                                consecutive bytes written\n"
+		   "                                                                                using XMM instructions.(Calc Freq)\n"
+		   "                                                                                                                 [MMIO]\n"
+  			"  sudo %s mem 0x90000000 x 0x40 f=2.0     Mem. Rd.from 0x90000000        Block Read. (0x40*4k)=256KB consecutive\n"
+  			"                                                                                bytes read using XMM instructions.\n"
+  			"                                                                                Use 2.0Ghz for freq.\n"
+  			"                                                                                                                 [MMIO]\n",
 			copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0]);
       printf("---------------------------------------------------------------------------------------------------\n"); 
 	
@@ -746,7 +758,7 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		printf("Parameters Just Passed: ");
 		for (q=0; q < copyargc; q++)
 			{
-			printf("%s ", copyargv[q]);
+			printf("%s ", copyargv[q]); 
 			} 
       printf("\n===================================================================================================\n\n"); 
 		}
@@ -788,16 +800,16 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
       printf("\n===================================================================================================\n"); 
 		fprintf(stderr, "USAGE:\tsudo %s msr address {=data (for write)} {nosudo}\n"
 			"   {address}             - Address:         0x#########\n"
-			"   {=data (for writes)}  - Data to Write:   =0x####         (Optional.  Only for Writes.  In Hexadecimal)\n"
-			"   {nosudo}              - nosudo option                    (Optional.  Omit 'sudo' from modprobe msr cmd)\n\n"
+			"   {=data (for writes)}  - Data to Write:   =0x####     (Optional.  Only for Writes.  In Hexadecimal)\n"
+			"   {nosudo}              - nosudo option                (Optional.  Omit 'sudo' from modprobe msr cmd)\n\n"
 
 			"NOTE:\n"
 		   "   'sudo modprobe msr' executed before the msr command is issued.\n\n"
 
 			"EXAMPLES:\n"
-		   "   sudo %s msr 0x10          MSR Rd. from        0x10                                        [Time Stamp Counter]\n"
-		   "   sudo %s msr 0x10 nosudo   MSR Rd. from        0x10 (omit 'sudo' from 'modprobe msr' cmd.) [Time Stamp Counter]\n"
-		   "   sudo %s msr 0xC3=0x10     MSR Wr. of 0x10 to  0xC3                                        [Gen. Perf. Counter]\n",
+		   "   sudo %s msr 0x10         MSR Rd. from        0x10                                       [Time Stamp Counter]\n"
+		   "   sudo %s msr 0x10 nosudo  MSR Rd. from        0x10 (omit 'sudo' from 'modprobe msr' cmd) [Time Stamp Counter]\n"
+		   "   sudo %s msr 0xC3=0x10    MSR Wr. of 0x10 to  0xC3                                       [Gen. Perf. Counter]\n",
 			copyargv[0], copyargv[0], copyargv[0], copyargv[0]);
       printf("---------------------------------------------------------------------------------------------------\n"); 
 	
@@ -816,17 +828,17 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		{
       printf("\n===================================================================================================\n"); 
 		fprintf(stderr, "USAGE:\tsudo %s pci {BB:DD.F-{R}} {=data (for write)} {nosudo} {Filename} \n"
-			"   {BB:DD.F-{R}}         - Bus:Device.Function-Register                  ({R} Optional.  Dumps Whole BB:DD.F if missing)\n"
-			"   {=data (for writes)}  - Data to Write =0x####                         (Optional.      Only for Writes.  In Hexadecimal)\n"
-			"   {nosudo}              - nosudo option                                 (Optional.      Omit 'sudo' before lspci -xxxx cmd that dumps all PCI regs.)\n"
-			"   {Filename}            - Filename (MUST BE LAST PARAMETER IF PRESENT!) (Optional.      Dumps all PCI Regs to File)\n\n"
+			"   {BB:DD.F-{R}}         - Bus:Device.Function-Register                  ({R} Optional. Dumps Whole BB:DD.F if missing)\n"
+			"   {=data (for writes)}  - Data to Write =0x####                         (Optional.     Only for Writes.  In Hexadecimal)\n"
+			"   {nosudo}              - nosudo option                                 (Optional.     Omit 'sudo' before lspci -xxxx cmd)\n"
+			"   {Filename}            - Filename (MUST BE LAST PARAMETER IF PRESENT!) (Optional.     Dumps all PCI Regs to File)\n\n"
 
 			"EXAMPLES:\n"
-		   "   sudo %s pci 00:0x00.0x00-0x00 D   PCI Rd. from             00:00.00-00     Dword Access    4 Bytes Read (Default).  [Device ID]\n"
-		   "   sudo %s pci 00:0x1F.00-04=0x0FFF  PCI Wr. of    0x0FFF to  00:0x1F.00-04   Word Access.                  [PCI Command Register]\n"
-		   "   sudo %s pci 00:0x1D.00            PCI Rd. from             00:0x1D.00      Entire PCI space read.              [USB Controller]\n"
-		   "   sudo %s pci Registers.txt         PCI Rd. of Entire PCI Space.             Stored in filename, Registers.txt\n"
-		   "   %s pci nosudo Registers.txt       PCI Rd. of Entire PCI Space. (omit sudo) Stored in filename, Registers.txt\n",
+		   "  sudo %s pci 00:0x00.0x00-0x00 D   PCI Rd. from 00:00.00-00 (Dword)       4 Bytes Read (Default). [Dev ID]\n"
+		   "  sudo %s pci 00:0x1F.00-04=0x0FFF  PCI Wr. of 0x0FFF to 00:0x1F.00-04     Word Access.       [PCI CMD Reg]\n"
+		   "  sudo %s pci 00:0x1D.00            PCI Rd. from 00:0x1D.00                Entire PCI space read. [USB Cnt]\n"
+		   "  sudo %s pci Registers.txt         PCI Rd. of Entire PCI Space.           Stored in filename, Registers.txt\n"
+		   "  %s pci nosudo Registers.txt       PCI Rd. of Entire PCI Space. (no sudo) Stored in filename, Registers.txt\n",
 			copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0]);
       printf("---------------------------------------------------------------------------------------------------\n"); 
 	
@@ -1693,6 +1705,14 @@ Version 1.2  (01-30-2015):  Release to Bluecoat.
 Version 1.3  (02-03-2015):
 	- First official release on GitHub.
 	- Added a very short readme
+Version 1.4  (02-09-15)
+	- Cleaned up Help Menus
+	- Tested with Following Builds:
+	(see samtool_testing.txt for more details)
+		Ubuntu 14.04 (64-bit)
+		Mint 17 (64 bit)
+		Fedora 21 (64-bit)
+		SUSE 13.2 (64-bit)
 	
 
 TO DO:
