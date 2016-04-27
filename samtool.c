@@ -82,6 +82,10 @@
 
 											 MSR_Read,				MSR_Write,	          MSR_Detailed_Help,       					// 17-19
 
+											 PCIE_Read_Byte,		PCIE_Read_Word,		   PCIE_Read_Dword,          					// 20-22
+											 PCIE_Write_Byte,		PCIE_Write_Word,		PCIE_Write_Dword,         					// 23-25
+											 PCIE_Dump_Device,		PCIE_Dump_File,
+
 											 PCI_Read_Byte,		PCI_Read_Word,		   PCI_Read_Dword,          					// 20-22
 											 PCI_Write_Byte,		PCI_Write_Word,		PCI_Write_Dword,         					// 23-25
 											 PCI_Dump_Device,		PCI_Dump_File,			PCI_Detailed_Help,       					// 26-28
@@ -105,6 +109,8 @@
 		bool Function_Valid;					// Was a valid Function passed? (for PCI only)
 		long long unsigned int Data;		// Data (for writes)
 		bool Data_Valid;						// Was valid data passed? (for writes only)
+		unsigned long PCIEBar;		// Bar for PCIE config space
+		bool PCIEBar_Valid;						// Was a valid BAR passed?
 		enum access_types Access_Type;	// Read, Write
 		enum access_size Size;				// Byte, Word, Dword, XBlock
 		unsigned long int Length;			// # of bytes to transfer		
@@ -149,6 +155,8 @@ int main(int argc, char *argv[])
 	THE_Command.Function_Valid = false;
 	THE_Command.Data = 0;
 	THE_Command.Data_Valid = false;
+	THE_Command.PCIEBar = 0;
+	THE_Command.PCIEBar_Valid = false;
 	THE_Command.Access_Type = access_none;				
 	THE_Command.Size = size_none;	
 	THE_Command.Length = 1;
@@ -224,6 +232,8 @@ int main(int argc, char *argv[])
 	printf("Access_Type     : %i    { (0)access_none,  (1)Read, (2)Write }\n", THE_Command.Access_Type);
 	printf("Data            : %llX\n", THE_Command.Data);
 	printf("Data_Valid      : %X\n",   (unsigned int)THE_Command.Data_Valid);
+	printf("BAR             : %llX\n", THE_Command.PCIEBar);
+	printf("PCIEBar_Valid   : %X\n",   (unsigned int)THE_Command.PCIEBar_Valid);
 	printf("Size            : %i    { (0)size_none, (1)Byte, (2)Word, (3)Dword, (4)XBlock } \n", THE_Command.Size);
 	printf("Length          : %X\n",   (unsigned int)THE_Command.Length);
 	printf("Filename        : %s\n",   THE_Command.Filename);
@@ -304,13 +314,13 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 
 		// -----------------------------------------------------
 		// COMMAND_TYPE:  
-		else if (strncmp(argv[i], "MEM", 3) == 0)
+		else if (strncmp(argv[i], "MEM", 3) == 0 && strlen(argv[i]) == 3)
 			THE_Command->Command_Type = mem;
-		else if (strncmp(argv[i], "IO", 2) == 0)
+		else if (strncmp(argv[i], "IO", 2) == 0 && strlen(argv[i]) == 2)
 			THE_Command->Command_Type = io;
-		else if (strncmp(argv[i], "MSR", 3) == 0)
+		else if (strncmp(argv[i], "MSR", 3) == 0 && strlen(argv[i]) == 3)
 			THE_Command->Command_Type =msr;
-		else if (strncmp(argv[i], "PCI", 3) == 0)
+		else if (strncmp(argv[i], "PCI", 3) == 0 && strlen(argv[i]) == 3)
 			THE_Command->Command_Type = pci;
 
 		// -----------------------------------------------------
@@ -327,7 +337,7 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 			THE_Command->Size = Dword;
 		else if (strncmp(argv[i], "DWORD", 5) == 0)
 			THE_Command->Size = Dword;
-		else if (strncmp(argv[i], "X", 1) == 0)
+		else if (strncmp(argv[i], "X", 1) == 0 && strlen(argv[i]) == 1)
 			THE_Command->Size = XBlock;
 		else if (strncmp(argv[i], "BLOCK", 5) == 0)
 			THE_Command->Size = XBlock;
@@ -346,6 +356,7 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 		else if ( (argv[i][0]=='F') && (argv[i][1]=='\0') ) 			// Does string contain just one letter of "F"?
 			THE_Command->Display_Time = true;
 
+
 		// -----------------------------------------------------
 		// PCI BUS:DEVICE.FUNCTION-REGISTER
 		// Look for ":" and decode Bus:Device.Function  (possibly -register).
@@ -355,7 +366,7 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 			// 00:1F.0-40
 
 			// It's gotta be PCI access with a ':'!
-			THE_Command->Command_Type = pci;
+			//THE_Command->Command_Type = pci; // not anymore with the addition of pciexpress
 //			THE_Command->Address_Valid = true;					// BB:DD.F IS the PCI Address!  This line needed since follow on 0x#### will be length.
 																			// Deleted.   pci 00:0x1f.00 was causing device to not come up
 			Address_Found = true;
@@ -438,6 +449,13 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 			else 
 				THE_Command->Length = temp;
 			}
+
+		// Look for "pciexbar=#" and passed_bar
+		else if ( (argv[i][0]=='P') && (argv[i][1]=='C') && (argv[i][2]=='I') && (argv[i][3]=='E') && (argv[i][4]=='X') && (argv[i][5]=='B') && (argv[i][6]=='A') && (argv[i][7]=='R') && (argv[i][8]=='='))
+		{
+			THE_Command->PCIEBar = strtol (&argv[i][9],&pEnd,16);
+			THE_Command->PCIEBar_Valid = true;
+		}
 
 		// -----------------------------------------------------
 		// WRITE_DATA: (when it's by itself  ex:  mem 0xA000 =0x300
@@ -595,10 +613,15 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 			}
 		}
 
-	// ------------------ START PCI----------------------------------------------
+	// ------------------ START PCI/E----------------------------------------------
+
+	// -----------------------------------------------------
+	// passed_PCIE Bar TODO - this is not being hit
+
+
 	else if (THE_Command->Command_Type == pci)
 		{
-		// Valid Checks:  Filenane (don't need anything else		B:D.F (device)  	B:D.F-R (full)   
+		// Valid Checks:  Filename (don't need anything else		B:D.F (device)  	B:D.F-R (full)
 		if (strcmp(THE_Command->Filename,"") !=0)
 			THE_Command->Command_Final = PCI_Dump_File;
 		else if ( (THE_Command->Bus_Valid == true ) && (THE_Command->Device_Valid == true ) && (THE_Command->Function_Valid == true ) && (THE_Command->Address_Valid == false )   )
@@ -646,7 +669,42 @@ void parse_everything(struct command *THE_Command, int argc, char *argv[])
 			if ( (THE_Command->Access_Type == Write) && (THE_Command->Size == Dword) )
 				THE_Command->Command_Final = PCI_Write_Dword;
 			}
+
+			//need to convert PCI to PCIE if we found the pcie bar
+			if(THE_Command->PCIEBar_Valid == true)
+			{
+				switch(THE_Command->Command_Final)
+				{
+				case PCI_Dump_File:
+					THE_Command->Command_Final = PCIE_Dump_File;
+					break;
+				case PCI_Dump_Device:
+					THE_Command->Command_Final = PCIE_Dump_Device;
+					break;
+				case PCI_Read_Byte:
+					THE_Command->Command_Final = PCIE_Read_Byte;
+					break;
+				case PCI_Read_Word:
+					THE_Command->Command_Final = PCIE_Read_Word;
+					break;
+				case PCI_Read_Dword:
+					THE_Command->Command_Final = PCIE_Read_Dword;
+					break;
+				case PCI_Write_Byte:
+					THE_Command->Command_Final = PCIE_Write_Byte;
+					break;
+				case PCI_Write_Word:
+					THE_Command->Command_Final = PCIE_Write_Word;
+					break;
+				case PCI_Write_Dword:
+					THE_Command->Command_Final = PCIE_Write_Dword;
+					break;
+				default:  //do we care?
+					break;
+				}
+			}
 		}
+
 	}  // end of parse_everything.  What a Pain
 
 
@@ -680,26 +738,27 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 	if ( (THE_Command->Command_Final == Generic_Help) || 
         (THE_Command->Command_Final == ll_command_none)  )
 		{
-      printf("\n===================================================================================================\n"); 
-		fprintf(stderr, "USAGE: sudo %s {mem/io/msr/pci} {address} {=data (for write)} {b/w/d/x} {length} {?} {f{=#.#}}\n"
-			"  {mem/io/msr/pci}      - Register Type:   Memory, I/O, MSR, PCI\n"
-			"  {address}             - Address:         0x######### for (mem, IO, MSR) - In Hexadecimal\n"
-			"                                           BB:D.F-0x## for (PCI)\n"
-			"                                           BB:D.F          (PCI Device Dump)\n"
-			"  {=data (for writes)}  - Data to Write:   =0x####         (In Hexadecimal)\n"
-			"  {b/w/d/x}             - Access Size:     Byte, Word, Dword, XMM\n"
-			"  {length (total size)} - # of Bytes TOTAL                 (mem only)\n"
-			"                                                           (# of 4K blocks for xmm)\n"
-			"                                                           (max of 512MB = 0x20000000/0x20000 for xmm))\n"
-			"  {?}                   - Extended Help                    (with {mem/io/msr/pci} )\n"
-			"  {f{=#.#}}             - Measure Time.    Freq in GHz     (#.# Opt - Else tool calculates using HPET/TSC)\n\n"
+	      printf("\n===================================================================================================\n");
+			fprintf(stderr, "USAGE: sudo %s {mem/io/msr/pci} {pciexbar=0x# for PCIE} {address} {=data (for write)} {b/w/d/x} {length} {?} {f{=#.#}}\n"
+				"  {mem/io/msr/pci/pcie} - Register Type:     Memory, I/O, MSR, PCI, PCIE\n"
+				"  {pciexbar=0x#}        - PCIEXBAR Address:  PCI accesses will use PCIEXBAR referenced memory addresses instead of Linux lspci cmd\n"
+				"  {address}             - Address:           0x######### for (mem, IO, MSR) - In Hexadecimal\n"
+				"                                             BB:D.F-0x## for (PCI)\n"
+				"                                             BB:D.F          (PCI Device Dump)\n"
+				"  {=data (for writes)}  - Data to Write:     =0x####         (In Hexadecimal)\n"
+				"  {b/w/d/x}             - Access Size:       Byte, Word, Dword, XMM\n"
+				"  {length (total size)} - # of Bytes TOTAL                   (mem only)\n"
+				"                                                             (# of 4K blocks for xmm)\n"
+				"                                                             (max of 512MB = 0x20000000/0x20000 for xmm))\n"
+				"  {?}                   - Extended Help                      (with {mem/io/msr/pci} )\n"
+				"  {f{=#.#}}             - Measure Time.      Freq in GHz     (#.# Opt - Else tool calculates using HPET/TSC)\n\n"
 
-			"EXAMPLE:  sudo %s mem 0xFFFFFFF0 d 0x10 f\n"
-			"  Memory Read from 0xFFFFFFF0 (dword access).  Total of 0x10 bytes read.  Measure latency/performance\n"
-			"                                                                          [BIOS Boot Vector]\n\n"
-			"EXAMPLE:  sudo %s {mem/io/msr/pci} ?    Extended Help & Examples  \n\n",
-			copyargv[0], copyargv[0], copyargv[0]);
-      printf("---------------------------------------------------------------------------------------------------\n"); 
+				"EXAMPLE:  sudo %s mem 0xFFFFFFF0 d 0x10 f\n"
+				"  Memory Read from 0xFFFFFFF0 (dword access).  Total of 0x10 bytes read.  Measure latency/performance\n"
+				"                                                                          [BIOS Boot Vector]\n\n"
+				"EXAMPLE:  sudo %s {mem/io/msr/pci} ?    Extended Help & Examples  \n\n",
+				copyargv[0], copyargv[0], copyargv[0]);
+	      printf("---------------------------------------------------------------------------------------------------\n");
 	
 //		if (THE_Command->Command_Type == hl_command_none)
 //	      printf("* ERRORS DETECTED!! *  Check parameters.  Use {mem/io/msr/pci} ? for more detailed help\n"); 
@@ -826,22 +885,26 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 	
 	if (THE_Command->Command_Final == PCI_Detailed_Help)
 		{
-      printf("\n===================================================================================================\n"); 
-		fprintf(stderr, "USAGE:\tsudo %s pci {BB:DD.F-{R}} {=data (for write)} {nosudo} {Filename} \n"
-			"   {BB:DD.F-{R}}         - Bus:Device.Function-Register                  ({R} Optional. Dumps Whole BB:DD.F if missing)\n"
-			"   {=data (for writes)}  - Data to Write =0x####                         (Optional.     Only for Writes.  In Hexadecimal)\n"
-			"   {nosudo}              - nosudo option                                 (Optional.     Omit 'sudo' before lspci -xxxx cmd)\n"
-			"   {Filename}            - Filename (MUST BE LAST PARAMETER IF PRESENT!) (Optional.     Dumps all PCI Regs to File)\n\n"
+	      printf("\n===================================================================================================\n");
+			fprintf(stderr, "USAGE:\tsudo %s pci {pciexbar=0x# for PCIE} {BB:DD.F-{R}} {=data (for write)} {nosudo} {Filename} \n"
+				"   {pciexbar=0x#}        - PCIEXBAR Address:  PCI accesses will use PCIEXBAR referenced memory addresses instead of Linux lspci cmd\n"
+				"   {BB:DD.F-{R}}         - Bus:Device.Function-Register                  ({R} Optional. Dumps Whole BB:DD.F if missing)\n"
+				"   {=data (for writes)}  - Data to Write =0x####                         (Optional.     Only for Writes.  In Hexadecimal)\n"
+				"   {b/w/d/x}             - Access Size:  Byte/Word/DWord/XMM             (Optional.     Defaults to Byte)\n"
+				"   {nosudo}              - nosudo option                                 (Optional.     Omit 'sudo' before lspci -xxxx cmd)\n"
+				"   {Filename}            - Filename (MUST BE LAST PARAMETER IF PRESENT!) (Optional.     Dumps all PCI Regs to File)\n\n"
 
-			"EXAMPLES:\n"
-		   "  sudo %s pci 00:0x00.0x00-0x00 D   PCI Rd. from 00:00.00-00 (Dword)       4 Bytes Read (Default). [Dev ID]\n"
-		   "  sudo %s pci 00:0x1F.00-04=0x0FFF  PCI Wr. of 0x0FFF to 00:0x1F.00-04     Word Access.       [PCI CMD Reg]\n"
-		   "  sudo %s pci 00:0x1D.00            PCI Rd. from 00:0x1D.00                Entire PCI space read. [USB Cnt]\n"
-		   "  sudo %s pci Registers.txt         PCI Rd. of Entire PCI Space.           Stored in filename, Registers.txt\n"
-		   "  %s pci nosudo Registers.txt       PCI Rd. of Entire PCI Space. (no sudo) Stored in filename, Registers.txt\n",
-			copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0]);
-      printf("---------------------------------------------------------------------------------------------------\n"); 
-	
+				"EXAMPLES:\n"
+			   "  sudo %s pci 00:0x00.0x00-0x00 D   PCI Rd. from 00:00.00-00 (Dword)       4 Bytes Read (Default). [Dev ID]\n"
+			   "  sudo %s pci 00:0x1F.00-04=0x0FFF  PCI Wr. of 0x0FFF to 00:0x1F.00-04     Word Access.       [PCI CMD Reg]\n"
+			   "  sudo %s pci 00:0x1D.00            PCI Rd. from 00:0x1D.00                Entire PCI space read. [USB Cnt]\n"
+			   "  sudo %s pci 0x18:00.00 pciexbar=0xE0000000 Entire PCI space read from 0x18:00.00 using memory accesses\n"
+			   "  sudo %s pci Registers.txt         PCI Rd. of Entire PCI Space.           Stored in filename, Registers.txt\n"
+			   "  sudo %s pci pciexbar=0xE0000000 Registers.txt   All PCI devices read and stored in Registers.txt using memory accesses\n"
+			   "  %s pci nosudo Registers.txt       PCI Rd. of Entire PCI Space. (no sudo) Stored in filename, Registers.txt\n",
+				copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0], copyargv[0]);
+	      printf("---------------------------------------------------------------------------------------------------\n");
+
 		if (THE_Command->errorx)
 	      printf("* ERRORS DETECTED!! *  Check parameters.  \n"); 
 
@@ -1228,7 +1291,7 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 			}
 
 		strcat(tempstr, "\0");
-		cx = cx;
+		//cx = cx;
 //		printf("Final String: %s\n",tempstr);
 
 		system(tempstr);		
@@ -1241,6 +1304,165 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		SHFprint(ret, 2, 0x10,"","\n");
 		printf("============================================================\n\n");
 
+		}
+
+// ----- PCIE Read Byte ----------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+	if (THE_Command->Command_Final == PCIE_Read_Byte)
+		{
+		Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+		if (Found_Size == 0x00) // Not Found
+			{
+			printf("============================================================\n");
+			SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+			SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+			SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+			printf("============================================================\n\n");
+			}
+		else
+			{
+			THE_Command->Length = 1;
+		   array11[0] = SHFpcie_read_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->PCIEBar);
+			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+			}
+		}
+
+// ----- PCIE Read Word ----------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+	if (THE_Command->Command_Final == PCIE_Read_Word)
+		{
+		Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+		if (Found_Size == 0x00) // Not Found
+			{
+			printf("============================================================\n");
+			SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+			SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+			SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+			printf("============================================================\n\n");
+			}
+		else
+			{
+			THE_Command->Length = 2;
+			u16return_data6 = SHFpcie_read_word(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->PCIEBar);
+		   array11[0] = u16return_data6 & 0x00FF;
+		   array11[1] = (u16return_data6 & 0xFF00)>>8;
+			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+			}
+		}
+
+// ----- PCIE Read Dword ---------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+	if (THE_Command->Command_Final == PCIE_Read_Dword)
+		{
+		Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+		if (Found_Size == 0x00) // Not Found
+			{
+			printf("============================================================\n");
+			SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+			SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+			SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+			printf("============================================================\n\n");
+			}
+		else
+			{
+			THE_Command->Length = 4;
+			u32return_data6 = SHFpcie_read_dword(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->PCIEBar);
+			array11[0]= u32return_data6 & 0x000000FF;
+			array11[1]=(u32return_data6 & 0x0000FF00) >>8;
+			array11[2]=(u32return_data6 & 0x00FF0000) >>16;
+			array11[3]=(u32return_data6 & 0xFF000000) >>24;
+			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+			}
+		}
+
+// ----- PCIE Write Byte ---------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+	if (THE_Command->Command_Final == PCIE_Write_Byte)
+		{
+		strcpy(temp, "us");
+
+		if (THE_Command->Length < 1)		// If user didn't pick a length (in bytes), need to make sure at least a byte
+			THE_Command->Length = 1;
+
+		Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+		if (Found_Size == 0x00) // Not Found
+			{
+			printf("============================================================\n");
+			SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+			SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+			SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+			printf("============================================================\n\n");
+			}
+		else
+			{
+			THE_Command->Length = 1;
+			SHFpcie_write_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->Data, THE_Command->PCIEBar);
+			// The user wants to see the data read back, confirm read:
+		   array11[0] = SHFpcie_read_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->PCIEBar);
+			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+			}
+		}
+
+// ----- PCIE Write Word ---------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+	if (THE_Command->Command_Final == PCIE_Write_Word)
+		{
+		strcpy(temp, "us");
+
+		if (THE_Command->Length < 2)		// If user didn't pick a length (in bytes), need to make sure at least a word
+			THE_Command->Length = 2;
+
+		Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+		if (Found_Size == 0x00) // Not Found
+			{
+			printf("============================================================\n");
+			SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+			SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+			SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+			printf("============================================================\n\n");
+			}
+		else
+			{
+			THE_Command->Length = 2;
+			SHFpcie_write_word(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->Data, THE_Command->PCIEBar);
+			// The user wants to see the data read back, confirm read:
+			u16return_data6 = SHFpcie_read_word(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->PCIEBar);
+		   array11[0] = u16return_data6 & 0x00FF;
+		   array11[1] = (u16return_data6 & 0xFF00)>>8;
+			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+			}
+		}
+
+// ----- PCIE Write Dword --------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+	if (THE_Command->Command_Final == PCIE_Write_Dword)
+		{
+		strcpy(temp, "us");
+
+		if (THE_Command->Length < 4)		// If user didn't pick a length (in bytes), need to make sure at least a dword
+			THE_Command->Length = 4;
+
+		Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+		if (Found_Size == 0x00) // Not Found
+			{
+			printf("============================================================\n");
+			SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+			SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+			SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+			printf("============================================================\n\n");
+			}
+		else
+			{
+			THE_Command->Length = 4;
+			SHFpcie_write_dword(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->Data, THE_Command->PCIEBar);
+			// The user wants to see the data read back, confirm read:
+			u32return_data6 = SHFpcie_read_dword(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address, THE_Command->PCIEBar);
+			array11[0]= u32return_data6 & 0x000000FF;
+			array11[1]=(u32return_data6 & 0x0000FF00) >>8;
+			array11[2]=(u32return_data6 & 0x00FF0000) >>16;
+			array11[3]=(u32return_data6 & 0xFF000000) >>24;
+			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+			}
 		}
 
 // ----- PCI Read Byte ----------------------------------------------------------------------------------------------------------
@@ -1259,7 +1481,8 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		else
 			{
 			THE_Command->Length = 1;
-		   array11[0] = SHFpci_read_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
+			array11[0] = IOpci_read_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
+			//array11[0] = SHFpci_read_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
 			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
 			}
 		}
@@ -1280,7 +1503,8 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		else
 			{
 			THE_Command->Length = 2;
-			u16return_data6 = SHFpci_read_word(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
+			u16return_data6 = IOpci_read_word(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
+			//u16return_data6 = SHFpci_read_word(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
 		   array11[0] = u16return_data6 & 0x00FF;
 		   array11[1] = (u16return_data6 & 0xFF00)>>8;
 			Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
@@ -1303,7 +1527,8 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		else
 			{
 			THE_Command->Length = 4;
-			u32return_data6 = SHFpci_read_dword(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
+			u32return_data6 = IOpci_read_dword(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
+			//u32return_data6 = SHFpci_read_dword(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->Address);
 			array11[0]= u32return_data6 & 0x000000FF;
 			array11[1]=(u32return_data6 & 0x0000FF00) >>8;
 			array11[2]=(u32return_data6 & 0x00FF0000) >>16;
@@ -1443,7 +1668,7 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 			cx = snprintf(tempstr, 100, "sudo lspci -xxxx >  %s", copyargv[THE_Command->Filename_int]);
 
 		strcat(tempstr, "\0");
-		cx = cx;
+		//cx = cx;
 //		printf("Final String: %s\n",tempstr);
 
 		system(tempstr);		
@@ -1454,9 +1679,63 @@ void Execute_Command(struct command *THE_Command, int copyargc, char copyargv[20
 		}
 
 
-	free(array11);
 
-	}	// End of Execute_Command()
+// ----- PCIE Dump Device --------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+if (THE_Command->Command_Final == PCIE_Dump_Device)
+	{
+	Found_Size = PCIE_Device_Found_and_Size(THE_Command->Bus, THE_Command->Device, THE_Command->Function, THE_Command->PCIEBar);
+/*
+	SHFprint(THE_Command->Bus,      2, 0x10,"\nFound Size for ", ":");
+	SHFprint(THE_Command->Device,  2, 0x10,"", ".");
+	SHFprint(THE_Command->Function,2, 0x10,"", " = ");
+	SHFprint(Found_Size, 4, 0x10,"0x", "\n");
+*/
+	if (Found_Size == 0x00) // Not Found
+		{
+		printf("============================================================\n");
+		SHFprint(THE_Command->Bus,      2, 0x10,"Device at ", ":");
+		SHFprint(THE_Command->Device,   2, 0x10,"", ".");
+		SHFprint(THE_Command->Function, 1, 0x10,"", " Not Found!\n");
+		printf("============================================================\n\n");
+		}
+	else
+		{
+		for (cx=0x00; cx<=(Found_Size-1); cx++)
+		   array11[cx] = SHFpcie_read_byte(THE_Command->Bus, THE_Command->Device, THE_Command->Function, (THE_Command->Address+cx), THE_Command->PCIEBar);
+		THE_Command->Length = Found_Size;
+		THE_Command->Size = 1;
+		THE_Command->Address = 0;
+		Pretty_Output(THE_Command, result9, temp, array11, THE_Command->passed_frequency);
+		}
+	}
+
+// ----- PCI Dump File ----------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+if (THE_Command->Command_Final == PCIE_Dump_File)
+	{
+	// sudo lspci -xxxx > regdump.txt
+	if (THE_Command->nosudox == true)
+		cx = snprintf(tempstr, 100, "lspci -xxxx >  %s", copyargv[THE_Command->Filename_int]);
+	else
+		cx = snprintf(tempstr, 100, "sudo lspci -xxxx >  %s", copyargv[THE_Command->Filename_int]);
+
+	strcat(tempstr, "\0");
+	//cx = cx;
+//		printf("Final String: %s\n",tempstr);
+
+	system(tempstr);
+
+	printf("============================================================\n");
+	printf("Full PCI Register Dump saved into file %s\n", copyargv[THE_Command->Filename_int]);
+	printf("============================================================\n\n");
+	}
+
+
+free(array11);
+
+}	// End of Execute_Command()
+
 
 
 //===========================================================
@@ -1632,7 +1911,7 @@ void Pretty_Output(   struct command *THE_Command, float result9, char *temp, u8
 			{
 			// Don't want screen scrolling forever for long lengths;
 			//  Will print first 0x100 bytes and last 0x100 bytes.
-         if ( (length > 0x200) && ( (j > 0xFF) && (j < (length-0xFF)) ) )
+         if ( THE_Command->PCIEBar_Valid == false && (length > 0x200) && ( (j > 0xFF) && (j < (length-0xFF)) ) )
             {
             if (dots_printed == false)
                {

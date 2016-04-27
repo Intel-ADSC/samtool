@@ -28,10 +28,28 @@ u8 SHFpci_read_byte(unsigned long bus, unsigned long device, unsigned long funct
 u16 SHFpci_read_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg);
 u32 SHFpci_read_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg);
 
+u8 IOpci_read_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg);
+u16 IOpci_read_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg);
+u32 IOpci_read_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg);
+
 // PCI Write Routines
 void SHFpci_write_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u8 u8_data);
 void SHFpci_write_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u16 u16_data);
 void SHFpci_write_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u32 u32_data);
+
+void IOpci_write_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u8 u8_data);
+void IOpci_write_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u16 u16_data);
+void IOpci_write_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u32 u32_data);
+
+//PCIe Read Routines
+u8 SHFpcie_read_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u64 base_address);
+u16 SHFpcie_read_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u64 base_address);
+u32 SHFpcie_read_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u64 base_address);
+
+// PCIe Write Routines
+void SHFpcie_write_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u8 u8_data, u64 base_address);
+void SHFpcie_write_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u16 u16_data, u64 base_address);
+void SHFpcie_write_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u32 u32_data, u64 base_address);
 
 //===========================================================
 // Memory Read Routines
@@ -176,5 +194,6 @@ void SHF_wrmsr_new(u64 passed_address, u64 data);
 
 //===========================================================
 unsigned int PCI_Device_Found_and_Size(unsigned long bus, unsigned long device, unsigned long function);
+unsigned int PCIE_Device_Found_and_Size(unsigned long bus, unsigned long device, unsigned long function, u64 base_address);
 
 

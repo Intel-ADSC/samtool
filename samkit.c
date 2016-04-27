@@ -70,16 +70,226 @@
 #define MAP_MASK (MAP_SIZE - 1)
 
 
+
+//===========================================================
+//===========================================================
+u8 SHFpcie_read_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u64 base_address)
+{
+	u64 memloc = base_address;
+	memloc += bus * 0x100000;
+	memloc += device * 0x8000;
+	memloc += function * 1000;
+	memloc += reg;
+
+	return SHFmem_read_byte(memloc);
+}
+
+//===========================================================
+//===========================================================
+u16 SHFpcie_read_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u64 base_address)
+{
+	u64 memloc = base_address;
+	memloc += bus * 0x100000;
+	memloc += device * 0x8000;
+	memloc += function * 1000;
+	memloc += reg;
+
+	return SHFmem_read_word(memloc);
+}
+
+//===========================================================
+//===========================================================
+u32 SHFpcie_read_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u64 base_address)
+{
+	u64 memloc = base_address;
+	memloc += bus * 0x100000;
+	memloc += device * 0x8000;
+	memloc += function * 1000;
+	memloc += reg;
+
+	return SHFmem_read_dword(memloc);
+}
+
+//===========================================================
+//===========================================================
+void SHFpcie_write_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u8 u8_data, u64 base_address)
+{
+	u64 memloc = base_address;
+	memloc += bus * 0x100000;
+	memloc += device * 0x8000;
+	memloc += function * 1000;
+	memloc += reg;
+
+	SHFmem_write_byte(memloc, u8_data);
+
+return;
+}
+
+
+//===========================================================
+//===========================================================
+void SHFpcie_write_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u16 u16_data, u64 base_address)
+{
+	u64 memloc = base_address;
+	memloc += bus * 0x100000;
+	memloc += device * 0x8000;
+	memloc += function * 1000;
+	memloc += reg;
+
+	SHFmem_write_word(memloc, u16_data);
+
+return;
+}
+
+
+//===========================================================
+//===========================================================
+void SHFpcie_write_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u32 u32_data, u64 base_address)
+{
+	u64 memloc = base_address;
+	memloc += bus * 0x100000;
+	memloc += device * 0x8000;
+	memloc += function * 1000;
+	memloc += reg;
+
+	SHFmem_write_dword(memloc, u32_data);
+
+return;
+}
+
+u8 IOpci_read_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg)
+{
+	//0xCF8 - Address   0xCFC - Data (32 bit)
+	//bit 31 enable
+	//30-24  reserved
+	//23-16  bus (0-255)
+	//15-11  device (0-31)
+	//10-8   function (0-7)
+	//7-0    register
+
+	unsigned long DWReg = 0;
+	u32 command = 0x80000000;
+	u32 data = 0;
+	u8 offset = reg % 4;
+	u8 retval = 0;
+
+	//need to dword align and then pick the byte that you wanted
+	DWReg = (reg / 4) * 4;
+
+	command += bus * 10000;
+	command += device * 1000;
+	command += function * 100;
+	command += DWReg;
+
+	SHF_IO_write_dword(0xCF8, command);
+
+	data = SHF_IO_read_dword(0xCFC);
+
+	retval = (data >> (offset * 8)) & 0xFF;
+	return retval;
+}
+
+u16 IOpci_read_word(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg)
+{
+	//0xCF8 - Address   0xCFC - Data (32 bit)
+	//bit 31 enable
+	//30-24  reserved
+	//23-16  bus (0-255)
+	//15-11  device (0-31)
+	//10-8   function (0-7)
+	//7-0    register
+
+	unsigned long DWReg = 0;
+	u32 command = 0x80000000;
+	u32 data = 0;
+	u8 offset = reg % 4;
+	u16 retval = 0;
+
+	//need to dword align and then pick the byte that you wanted
+	DWReg = (reg / 4) * 4;
+
+	command += bus * 10000;
+	command += device * 1000;
+	command += function * 100;
+	command += DWReg;
+
+	SHF_IO_write_dword(0xCF8, command);
+
+	data = SHF_IO_read_dword(0xCFC);
+
+	retval = (data >> (offset * 8)) & 0xFFFF;
+
+	//Ok do we allow non-dword aligned PCI IO config cycles?
+	//if we do it requires another read and stitching the data together
+	if(offset > 2) //if 3 then need to grab bottom byte from next dword
+	{
+		//move to the next dword, still dword aligned
+		command += 4;
+		SHF_IO_write_dword(0xCF8, command);
+
+		data = SHF_IO_read_dword(0xCFC);
+		retval = retval | ((data & 0xFF) << 8);
+	}
+
+	return retval;
+}
+
+u32 IOpci_read_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg)
+{
+	//0xCF8 - Address   0xCFC - Data (32 bit)
+	//bit 31 enable
+	//30-24  reserved
+	//23-16  bus (0-255)
+	//15-11  device (0-31)
+	//10-8   function (0-7)
+	//7-0    register
+
+	unsigned long DWReg = 0;
+	u32 command = 0x80000000;
+	u32 data = 0;
+	u8 offset = reg % 4;
+	u32 retval = 0;
+
+	//need to dword align and then pick the byte that you wanted
+	DWReg = (reg / 4) * 4;
+
+	command += bus * 10000;
+	command += device * 1000;
+	command += function * 100;
+	command += DWReg;
+
+	SHF_IO_write_dword(0xCF8, command);
+
+	data = SHF_IO_read_dword(0xCFC);
+
+	retval = (data >> (offset * 8));
+
+	//Ok do we allow non-dword aligned PCI IO config cycles?
+	//if we do it requires another read and stitching the data together
+	if(offset > 0) //if 3 then need to grab bottom byte from next dword
+	{
+		//move to the next dword, still dword aligned
+		command += 4;
+		SHF_IO_write_dword(0xCF8, command);
+
+		data = SHF_IO_read_dword(0xCFC);
+		retval = retval | (data << (8 * (4-offset)));
+	}
+
+	return retval;
+
+}
+
 //===========================================================
 //===========================================================
 u8 SHFpci_read_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg)
 {
    struct pci_access *pacc = pci_alloc();
    struct pci_dev *dev;
-   unsigned long am_range;
+   unsigned long am_range = 0;
 
    // Get rid of warnings.  I hate warnings
-   bus=bus;    device = device;    function = function;    reg = reg;
+   //bus=bus;    device = device;    function = function;    reg = reg;
 
    pci_init(pacc);
    dev = pci_get_dev(pacc, 0x00, bus, device, function); if (dev == NULL) {printf("Error in pci_get_dev call\n");}
@@ -90,7 +300,6 @@ u8 SHFpci_read_byte(unsigned long bus, unsigned long device, unsigned long funct
    return am_range;
 }
 
-
 //===========================================================
 //===========================================================
 u32 SHFpci_read_dword(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg)
@@ -100,7 +309,7 @@ u32 SHFpci_read_dword(unsigned long bus, unsigned long device, unsigned long fun
    unsigned long am_range;
 
    // Get rid of warnings.  I hate warnings
-   bus=bus;    device = device;    function = function;    reg = reg;
+   //bus=bus;    device = device;    function = function;    reg = reg;
 
    pci_init(pacc);
    dev = pci_get_dev(pacc, 0x00, bus, device, function); if (dev == NULL) {printf("Error in pci_get_dev call\n");}
@@ -124,7 +333,7 @@ u16 SHFpci_read_word(unsigned long bus, unsigned long device, unsigned long func
    u16 am_range;
 
    // Get rid of warnings.  I hate warnings
-   bus=bus;    device = device;    function = function;    reg = reg;
+   //bus=bus;    device = device;    function = function;    reg = reg;
 
    pci_init(pacc);
    dev = pci_get_dev(pacc, 0x00, bus, device, function); if (dev == NULL) {printf("Error in pci_get_dev call\n");}
@@ -158,6 +367,38 @@ void SHFpci_write_byte(unsigned long bus, unsigned long device, unsigned long fu
 
 return;
 }
+
+void IOpci_write_byte(unsigned long bus, unsigned long device, unsigned long function, unsigned long reg, u8 u8_data)
+{
+	//0xCF8 - Address   0xCFC - Data (32 bit)
+	//bit 31 enable
+	//30-24  reserved
+	//23-16  bus (0-255)
+	//15-11  device (0-31)
+	//10-8   function (0-7)
+	//7-0    register
+
+	unsigned long DWReg = 0;
+	u32 command = 0x80000000;
+	u32 data = 0;
+	u8 offset = reg % 4;
+	u8 retval = 0;
+
+	//need to dword align and then pick the byte that you wanted
+	DWReg = (reg / 4) * 4;
+
+	command += bus * 10000;
+	command += device * 1000;
+	command += function * 100;
+	command += DWReg;
+
+	SHF_IO_write_dword(0xCF8, command);
+
+	data = SHF_IO_read_dword(0xCFC);
+
+	retval = (data >> (offset * 8)) & 0xFF;
+}
+
 
 
 //===========================================================
@@ -293,6 +534,7 @@ u16 SHFmem_read_word(u64 passed_address)
 u32 SHFmem_read_dword(u64 passed_address)
 {
 	u32 u32_data;
+	u16 bla;
 	u64 aligned_address, offset;
 
 	int fd; 
@@ -643,9 +885,9 @@ void SHFprint(u64 number, int min_length, int base, char *before, char *after)
 	int i;
 
 // I hate warnings
-	number = number;     
-	min_length = min_length;     
-	base = base;
+	//number = number;
+	//min_length = min_length;
+	//base = base;
 
 	printf("%s", before);
 
@@ -672,7 +914,7 @@ u64 rdtsc(void)
 	u32 lo, hi;
 	u64 tsc;
 
-	last = last;
+	//last = last;
 
 	if (sizeof(long) == sizeof(u64)) 
 		{
@@ -842,13 +1084,13 @@ double assembly_delay(u64 passed_address, char *units, u32 *read_result, double 
 	// If run a second time during program, just exit with the last read frequency!
 
 	// I hate warnings:
-	passed_address = passed_address;
-	start_time = start_time;
-	end_time = end_time;
-	access_type = access_type;
-	writeval = writeval;
-	read_result = read_result;
-	read_data = read_data;
+	//passed_address = passed_address;
+	//start_time = start_time;
+	//end_time = end_time;
+	//access_type = access_type;
+	//writeval = writeval;
+	//read_result = read_result;
+	//read_data = read_data;
 
 	// -------------------------------
 	if (input_freq == 0)
@@ -937,7 +1179,7 @@ void neg_add_one(u32 *i)
 	thedata = *i+1;
 	*i=thedata;
 	// warnings...*sigh*
-	thedata = thedata;
+	//thedata = thedata;
 }
 
 
@@ -959,12 +1201,12 @@ double read_assembly_delay(u64 passed_address, char *units, double input_freq, u
 	// If run a second time during program, just exit with the last read frequency!
 
 	// I hate warnings:
-	passed_address = passed_address;
-	start_time = start_time;
-	end_time = end_time;
-	access_type = access_type;
-	writeval = writeval;
-	read_data = read_data;
+	//passed_address = passed_address;
+	//start_time = start_time;
+	//end_time = end_time;
+	//access_type = access_type;
+	//writeval = writeval;
+	//read_data = read_data;
 
 /*
 	// -------------------------------
@@ -1115,12 +1357,12 @@ double write_assembly_delay(u64 passed_address, char *units, double input_freq, 
 	// If run a second time during program, just exit with the last read frequency!
 
 	// I hate warnings:
-	passed_address = passed_address;
-	start_time = start_time;
-	end_time = end_time;
-	access_type = access_type;
-	writeval = writeval;
-	read_data = read_data;
+	//passed_address = passed_address;
+	//start_time = start_time;
+	//end_time = end_time;
+	//access_type = access_type;
+	//writeval = writeval;
+	//read_data = read_data;
 
 /*
 	// -------------------------------
@@ -1249,20 +1491,20 @@ double block_read_assembly_delay_new(u64 passed_address, char *units, double inp
 	u64 difference;
 	int fd; 
 	void *map_base, *virt_addr; 
-	unsigned long writeval = 0;
+	//unsigned long writeval = 0;
 	off_t target;
 	int access_type = 'w';
-	static u32 read_data=0;
+	//static u32 read_data=0;
 	static double frequency = 0;
 	// If run a second time during program, just exit with the last read frequency!
 
 	// I hate warnings:
-	passed_address = passed_address;
-	start_time = start_time;
-	end_time = end_time;
-	access_type = access_type;
-	writeval = writeval;
-	read_data = read_data;
+	//passed_address = passed_address;
+	//start_time = start_time;
+	//end_time = end_time;
+	//access_type = access_type;
+	//writeval = writeval;
+	//read_data = read_data;
 
 /*
 	// -------------------------------
@@ -1420,22 +1662,22 @@ double block_write_assembly_delay_new(u64 passed_address, char *units, double in
 	u64 difference;
 	int fd; 
 	void *map_base, *virt_addr; 
-	unsigned long writeval = 0;
+	//unsigned long writeval = 0;
 	off_t target;
-	int access_type = 'w';
-	static u32 read_data=0;
+	//int access_type = 'w';
+	//static u32 read_data=0;
 	static double frequency = 0;
 	// If run a second time during program, just exit with the last read frequency!
 
 
 
 	// I hate warnings:
-	passed_address = passed_address;
-	start_time = start_time;
-	end_time = end_time;
-	access_type = access_type;
-	writeval = writeval;
-	read_data = read_data;
+	//passed_address = passed_address;
+	//start_time = start_time;
+	//end_time = end_time;
+	//access_type = access_type;
+	//writeval = writeval;
+	//read_data = read_data;
 
 /*
 	// -------------------------------
@@ -1592,7 +1834,6 @@ void SHF_wrmsr_new(u64 passed_address, u64 data)
 */
 }
 
-
 //===========================================================
 //===========================================================
 unsigned int PCI_Device_Found_and_Size(unsigned long bus, unsigned long device, unsigned long function)
@@ -1603,8 +1844,8 @@ unsigned int PCI_Device_Found_and_Size(unsigned long bus, unsigned long device, 
 	u8 capability_pointer = 0x01;
 	u8 capability_pointer_addr = 0x34;
 
-	devid = SHFpci_read_word(bus, device, function, 0x00);
-	vendorid = SHFpci_read_word(bus, device, function, 0x02);
+	devid = SHFpci_read_word(bus, device, function, 0x02);
+	vendorid = SHFpci_read_word(bus, device, function, 0x00);
 
 	if  ( ( (devid == 0x0000) && (vendorid == 0x0000)) || 
          ( (devid == 0xFFFF) && (vendorid == 0xFFFF)) )
@@ -1623,11 +1864,33 @@ unsigned int PCI_Device_Found_and_Size(unsigned long bus, unsigned long device, 
 		}
 	return 0x100;
 
+}
+
+//===========================================================
+//===========================================================
+unsigned int PCIE_Device_Found_and_Size(unsigned long bus, unsigned long device, unsigned long function, u64 base_address)
+	{
+	// unsigned int register_size = 0;		// 0 = Not Found.  255 = Normal PCI.  4096 (4K) = contains extended PCI regs
+	u16 devid = 0x01;
+	u16 vendorid = 0x01;
+	u8 capability_pointer = 0x01;
+	u8 capability_pointer_addr = 0x34;
+
+	devid = SHFpcie_read_word(bus, device, function, 0x02, base_address);
+	vendorid = SHFpcie_read_word(bus, device, function, 0x00, base_address);
+
+	if  ( ( (devid == 0x0000) && (vendorid == 0x0000)) ||
+         ( (devid == 0xFFFF) && (vendorid == 0xFFFF)) )
+		return 0x00;
+
+	// If we find it, then return 4096.  Because, well...it's PCIExpress space so you get it in all its glory
+
+	return 0x1000;
+
 
 
 
 }
-
 
 
 
